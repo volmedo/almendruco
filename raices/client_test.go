@@ -10,48 +10,48 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/volmedo/savia.git/repo"
 )
 
 func TestLogin(t *testing.T) {
+	repoMock := &repo.MockRepo{}
+	repoMock.On("GetUserData").
+		Return(repo.UserData{User: "Some User", Password: "s0m3p4ss"}, nil).
+		Once()
+	defer repoMock.AssertExpectations(t)
 
+	mux := http.NewServeMux()
+	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
+	mux.Handle(msgPath, http.HandlerFunc(happyMessagesHandler))
+
+	svr := httptest.NewServer(mux)
+	defer svr.Close()
+
+	_, err := NewClient(svr.URL, repoMock)
+	if err != nil {
+		t.Fatalf("Expected no error, but got %s", err)
+	}
 }
 
 func TestFetchMessages(t *testing.T) {
 	var str bytes.Buffer
 	log.SetOutput(&str)
 
-	testResp := `
-	{
-		"ESTADO": {
-			"CODIGO": "C"
-		},
-		"RESULTADO": [
-			{
-				"X_NOTMENSAL": 12345678,
-				"F_ENVIO": "01/10/2021 18:27",
-				"L_ADJUNTO": "S",
-				"T_ASUNTO": "SOME SUBJECT",
-				"F_LECTURA": "02/10/2021 19:03",
-				"CENTRO": "12345678 - SOME SCHOOL",
-				"REMITIDO": "Jon Doe (Director)",
-				"T_MENSAJE": "A message with some HTML entities&nbsp; and <div>markup</div>",
-				"ADJUNTOS": [
-					{
-						"X_ADJMENSAL": 123456,
-						"T_NOMFIC": "Some File.ext"
-					}
-				]
-			}
-		]
-	}
-	`
+	repoMock := &repo.MockRepo{}
+	repoMock.On("GetUserData").
+		Return(repo.UserData{User: "Some User", Password: "s0m3p4ss"}, nil).
+		Once()
+	defer repoMock.AssertExpectations(t)
 
-	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, testResp)
-	}))
+	mux := http.NewServeMux()
+	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
+	mux.Handle(msgPath, http.HandlerFunc(happyMessagesHandler))
+
+	svr := httptest.NewServer(mux)
 	defer svr.Close()
 
-	c, err := NewClient(svr.URL)
+	c, err := NewClient(svr.URL, repoMock)
 	if err != nil {
 		t.Fatalf("Unable to create client: %s", err)
 	}
@@ -79,4 +79,54 @@ func TestFetchMessages(t *testing.T) {
 	if diff := cmp.Diff(expected, msgs[0]); diff != "" {
 		t.Fatalf("Message not equal to expected:\n%s", diff)
 	}
+}
+
+func happyLoginHandler(w http.ResponseWriter, r *http.Request) {
+	testResp := `
+		{
+			"ESTADO": {
+				"CODIGO": "C"
+			}
+		}
+		`
+
+	loginCk := &http.Cookie{
+		Name:     loginCookieName,
+		Value:    "abcd",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+	}
+	http.SetCookie(w, loginCk)
+	w.WriteHeader(200)
+	w.Write([]byte(testResp))
+}
+
+func happyMessagesHandler(w http.ResponseWriter, r *http.Request) {
+	testResp := `
+		{
+			"ESTADO": {
+				"CODIGO": "C"
+			},
+			"RESULTADO": [
+				{
+					"X_NOTMENSAL": 12345678,
+					"F_ENVIO": "01/10/2021 18:27",
+					"L_ADJUNTO": "S",
+					"T_ASUNTO": "SOME SUBJECT",
+					"F_LECTURA": "02/10/2021 19:03",
+					"CENTRO": "12345678 - SOME SCHOOL",
+					"REMITIDO": "Jon Doe (Director)",
+					"T_MENSAJE": "A message with some HTML entities&nbsp; and <div>markup</div>",
+					"ADJUNTOS": [
+						{
+							"X_ADJMENSAL": 123456,
+							"T_NOMFIC": "Some File.ext"
+						}
+					]
+				}
+			]
+		}
+		`
+	fmt.Fprint(w, testResp)
 }

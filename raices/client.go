@@ -2,14 +2,28 @@ package raices
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"path"
+	"strings"
+
+	"golang.org/x/net/publicsuffix"
+
+	"github.com/volmedo/savia.git/repo"
 )
 
 const (
+	loginPath       = "/raiz_app/jsp/pasendroid/login"
+	userParam       = "USUARIO"
+	passParam       = "CLAVE"
+	verParam        = "p"
+	verString       = `{"version":"1.0.23"}`
+	loginCookieName = "JSESSIONID"
+
 	msgPath     = "/raiz_app/jsp/pasendroid/mensajeria"
 	pageParam   = "PAGINA"
 	msgsPerPage = 10
@@ -20,26 +34,80 @@ type Client interface {
 }
 
 type client struct {
-	http    http.Client
+	http    *http.Client
 	baseURL *url.URL
 }
 
-func NewClient(baseURL string) (Client, error) {
+func NewClient(baseURL string, repo repo.Repo) (Client, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return &client{}, err
 	}
 
-	return &client{
-		http:    http.Client{},
+	j, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		return &client{}, err
+	}
+
+	hc := &http.Client{Jar: j}
+
+	c := &client{
+		http:    hc,
 		baseURL: u,
-	}, nil
+	}
+
+	ud, err := repo.GetUserData()
+	if err != nil {
+		return &client{}, err
+	}
+
+	if err := c.login(ud.User, ud.Password); err != nil {
+		return &client{}, err
+	}
+
+	return c, nil
+}
+
+func (c *client) login(user, pass string) error {
+	params := url.Values{}
+	params.Set(userParam, user)
+	params.Set(passParam, pass)
+	params.Set(verParam, verString)
+
+	u, _ := url.Parse(c.baseURL.String())
+	u.Path = path.Join(u.Path, loginPath)
+	resp, err := c.http.Post(u.String(), "application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received status code %d", resp.StatusCode)
+	}
+
+	return c.checkSessionCookie()
+}
+
+func (c *client) checkSessionCookie() error {
+	cks := c.http.Jar.Cookies(c.baseURL)
+	if len(cks) == 0 {
+		return errors.New("no cookies received")
+	}
+
+	for _, ck := range cks {
+		if ck.Name == loginCookieName {
+			return nil
+		}
+	}
+
+	return errors.New("no login cookies found")
 }
 
 func (c *client) FetchMessages() ([]Message, error) {
 	msgs := []Message{}
 
-	u := c.baseURL
+	u, _ := url.Parse(c.baseURL.String())
 	u.Path = path.Join(u.Path, msgPath)
 	numMsgs := msgsPerPage
 	for i := 1; numMsgs == msgsPerPage; i++ {
