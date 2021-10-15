@@ -9,20 +9,20 @@ type MockRepo struct {
 	mock.Mock
 }
 
-// GetLastNotifiedMessage provides a mock function with given fields:
-func (_m *MockRepo) GetLastNotifiedMessage() (uint64, error) {
-	ret := _m.Called()
+// GetLastNotifiedMessage provides a mock function with given fields: userName
+func (_m *MockRepo) GetLastNotifiedMessage(userName string) (uint64, error) {
+	ret := _m.Called(userName)
 
 	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) uint64); ok {
+		r0 = rf(userName)
 	} else {
 		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(userName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -30,20 +30,20 @@ func (_m *MockRepo) GetLastNotifiedMessage() (uint64, error) {
 	return r0, r1
 }
 
-// GetUserData provides a mock function with given fields:
-func (_m *MockRepo) GetUserData() (UserData, error) {
-	ret := _m.Called()
+// GetPassword provides a mock function with given fields: userName
+func (_m *MockRepo) GetPassword(userName string) (string, error) {
+	ret := _m.Called(userName)
 
-	var r0 UserData
-	if rf, ok := ret.Get(0).(func() UserData); ok {
-		r0 = rf()
+	var r0 string
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(userName)
 	} else {
-		r0 = ret.Get(0).(UserData)
+		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(userName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -51,13 +51,13 @@ func (_m *MockRepo) GetUserData() (UserData, error) {
 	return r0, r1
 }
 
-// SetLastNotifiedMessage provides a mock function with given fields: _a0
-func (_m *MockRepo) SetLastNotifiedMessage(_a0 uint64) error {
-	ret := _m.Called(_a0)
+// SetLastNotifiedMessage provides a mock function with given fields: userName, id
+func (_m *MockRepo) SetLastNotifiedMessage(userName string, id uint64) error {
+	ret := _m.Called(userName, id)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(string, uint64) error); ok {
+		r0 = rf(userName, id)
 	} else {
 		r0 = ret.Error(0)
 	}

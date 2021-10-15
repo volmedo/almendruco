@@ -30,12 +30,14 @@ const (
 )
 
 type Client interface {
+	Login(userName string) error
 	FetchMessages() ([]Message, error)
 }
 
 type client struct {
 	http    *http.Client
 	baseURL *url.URL
+	repo    repo.Repo
 }
 
 func NewClient(baseURL string, repo repo.Repo) (Client, error) {
@@ -51,26 +53,22 @@ func NewClient(baseURL string, repo repo.Repo) (Client, error) {
 
 	hc := &http.Client{Jar: j}
 
-	c := &client{
+	return &client{
 		http:    hc,
 		baseURL: u,
-	}
-
-	ud, err := repo.GetUserData()
-	if err != nil {
-		return &client{}, err
-	}
-
-	if err := c.login(ud.User, ud.Password); err != nil {
-		return &client{}, err
-	}
-
-	return c, nil
+		repo:    repo,
+	}, nil
 }
 
-func (c *client) login(user, pass string) error {
+func (c *client) Login(userName string) error {
+	// Fetch user credentials from repo
+	pass, err := c.repo.GetPassword(userName)
+	if err != nil {
+		return err
+	}
+
 	params := url.Values{}
-	params.Set(userParam, user)
+	params.Set(userParam, userName)
 	params.Set(passParam, pass)
 	params.Set(verParam, verString)
 

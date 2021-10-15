@@ -16,8 +16,8 @@ import (
 
 func TestLogin(t *testing.T) {
 	repoMock := &repo.MockRepo{}
-	repoMock.On("GetUserData").
-		Return(repo.UserData{User: "Some User", Password: "s0m3p4ss"}, nil).
+	repoMock.On("GetPassword", "Some User").
+		Return("s0m3p4ss", nil).
 		Once()
 	defer repoMock.AssertExpectations(t)
 
@@ -28,8 +28,12 @@ func TestLogin(t *testing.T) {
 	svr := httptest.NewServer(mux)
 	defer svr.Close()
 
-	_, err := NewClient(svr.URL, repoMock)
+	c, err := NewClient(svr.URL, repoMock)
 	if err != nil {
+		t.Fatalf("Expected no error, but got %s", err)
+	}
+
+	if err := c.Login("Some User"); err != nil {
 		t.Fatalf("Expected no error, but got %s", err)
 	}
 }
@@ -39,8 +43,8 @@ func TestFetchMessages(t *testing.T) {
 	log.SetOutput(&str)
 
 	repoMock := &repo.MockRepo{}
-	repoMock.On("GetUserData").
-		Return(repo.UserData{User: "Some User", Password: "s0m3p4ss"}, nil).
+	repoMock.On("GetPassword", "Some User").
+		Return("s0m3p4ss", nil).
 		Once()
 	defer repoMock.AssertExpectations(t)
 
@@ -54,6 +58,10 @@ func TestFetchMessages(t *testing.T) {
 	c, err := NewClient(svr.URL, repoMock)
 	if err != nil {
 		t.Fatalf("Unable to create client: %s", err)
+	}
+
+	if err := c.Login("Some User"); err != nil {
+		t.Fatalf("Unexpected error login user: %s", err)
 	}
 
 	msgs, err := c.FetchMessages()
