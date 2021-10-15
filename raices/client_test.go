@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/volmedo/savia.git/repo"
+	"github.com/volmedo/almendruco.git/repo"
 )
 
 func TestLogin(t *testing.T) {

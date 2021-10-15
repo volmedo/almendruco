@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/volmedo/savia.git/repo"
+	"github.com/volmedo/almendruco.git/repo"
 )
 
 const (

@@ -1,4 +1,4 @@
-module github.com/volmedo/savia.git
+module github.com/volmedo/almendruco.git
 
 go 1.16
 
