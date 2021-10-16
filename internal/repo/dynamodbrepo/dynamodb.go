@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 
-	"github.com/volmedo/almendruco.git/repo"
+	"github.com/volmedo/almendruco.git/internal/repo"
 )
 
 const tableName = "almendruco-user-data"
