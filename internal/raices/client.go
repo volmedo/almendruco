@@ -1,6 +1,7 @@
 package raices
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 
 	"github.com/volmedo/almendruco.git/internal/repo"
 )
@@ -123,8 +126,12 @@ func (c *client) FetchMessages() ([]Message, error) {
 			return []Message{}, err
 		}
 
+		// For some reason, the server is using ISO 8859-1 to encode its responses instead of UTF-8
+		utf8Reader := transform.NewReader(bytes.NewReader(data), charmap.ISO8859_1.NewDecoder())
+		utf8Data, _ := ioutil.ReadAll(utf8Reader)
+
 		var msgResp messagesResponse
-		if err := json.Unmarshal(data, &msgResp); err != nil {
+		if err := json.Unmarshal(utf8Data, &msgResp); err != nil {
 			return []Message{}, err
 		}
 
