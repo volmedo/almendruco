@@ -33,17 +33,15 @@ const (
 )
 
 type Client interface {
-	Login(userName string) error
-	FetchMessages() ([]Message, error)
+	FetchMessages(creds repo.Credentials, lastNotifiedMessage uint64) ([]Message, error)
 }
 
 type client struct {
 	http    *http.Client
 	baseURL *url.URL
-	repo    repo.Repo
 }
 
-func NewClient(baseURL string, repo repo.Repo) (Client, error) {
+func NewClient(baseURL string) (Client, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return &client{}, err
@@ -59,53 +57,13 @@ func NewClient(baseURL string, repo repo.Repo) (Client, error) {
 	return &client{
 		http:    hc,
 		baseURL: u,
-		repo:    repo,
 	}, nil
 }
 
-func (c *client) Login(userName string) error {
-	// Fetch user credentials from repo
-	pass, err := c.repo.GetPassword(userName)
-	if err != nil {
-		return err
-	}
+func (c *client) FetchMessages(creds repo.Credentials, lastNotifiedMessage uint64) ([]Message, error) {
+	// Login if needed
+	c.login(creds)
 
-	params := url.Values{}
-	params.Set(userParam, userName)
-	params.Set(passParam, pass)
-	params.Set(verParam, verString)
-
-	u, _ := url.Parse(c.baseURL.String())
-	u.Path = path.Join(u.Path, loginPath)
-	resp, err := c.http.Post(u.String(), "application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d", resp.StatusCode)
-	}
-
-	return c.checkSessionCookie()
-}
-
-func (c *client) checkSessionCookie() error {
-	cks := c.http.Jar.Cookies(c.baseURL)
-	if len(cks) == 0 {
-		return errors.New("no cookies received")
-	}
-
-	for _, ck := range cks {
-		if ck.Name == loginCookieName {
-			return nil
-		}
-	}
-
-	return errors.New("no login cookies found")
-}
-
-func (c *client) FetchMessages() ([]Message, error) {
 	msgs := []Message{}
 
 	u, _ := url.Parse(c.baseURL.String())
@@ -146,6 +104,42 @@ func (c *client) FetchMessages() ([]Message, error) {
 	}
 
 	return msgs, nil
+}
+
+func (c *client) login(creds repo.Credentials) error {
+	params := url.Values{}
+	params.Set(userParam, creds.UserName)
+	params.Set(passParam, creds.Password)
+	params.Set(verParam, verString)
+
+	u, _ := url.Parse(c.baseURL.String())
+	u.Path = path.Join(u.Path, loginPath)
+	resp, err := c.http.Post(u.String(), "application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received status code %d", resp.StatusCode)
+	}
+
+	return c.checkSessionCookie()
+}
+
+func (c *client) checkSessionCookie() error {
+	cks := c.http.Jar.Cookies(c.baseURL)
+	if len(cks) == 0 {
+		return errors.New("no cookies received")
+	}
+
+	for _, ck := range cks {
+		if ck.Name == loginCookieName {
+			return nil
+		}
+	}
+
+	return errors.New("no login cookies found")
 }
 
 func parseMessages(raw []rawMessage) ([]Message, error) {

@@ -1,53 +1,20 @@
 package raices
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/volmedo/almendruco.git/internal/repo"
 )
 
-func TestLogin(t *testing.T) {
-	repoMock := &repo.MockRepo{}
-	repoMock.On("GetPassword", "Some User").
-		Return("s0m3p4ss", nil).
-		Once()
-	defer repoMock.AssertExpectations(t)
-
-	mux := http.NewServeMux()
-	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
-	mux.Handle(msgPath, http.HandlerFunc(happyMessagesHandler))
-
-	svr := httptest.NewServer(mux)
-	defer svr.Close()
-
-	c, err := NewClient(svr.URL, repoMock)
-	if err != nil {
-		t.Fatalf("Expected no error, but got %s", err)
-	}
-
-	if err := c.Login("Some User"); err != nil {
-		t.Fatalf("Expected no error, but got %s", err)
-	}
-}
-
 func TestFetchMessages(t *testing.T) {
-	var str bytes.Buffer
-	log.SetOutput(&str)
-
-	repoMock := &repo.MockRepo{}
-	repoMock.On("GetPassword", "Some User").
-		Return("s0m3p4ss", nil).
-		Once()
-	defer repoMock.AssertExpectations(t)
-
 	mux := http.NewServeMux()
 	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
 	mux.Handle(msgPath, http.HandlerFunc(happyMessagesHandler))
@@ -55,23 +22,18 @@ func TestFetchMessages(t *testing.T) {
 	svr := httptest.NewServer(mux)
 	defer svr.Close()
 
-	c, err := NewClient(svr.URL, repoMock)
-	if err != nil {
-		t.Fatalf("Unable to create client: %s", err)
+	c, err := NewClient(svr.URL)
+	require.NoError(t, err, "Unable to create client")
+
+	testCreds := repo.Credentials{
+		UserName: "Some User",
+		Password: "s0m3p4ss",
 	}
 
-	if err := c.Login("Some User"); err != nil {
-		t.Fatalf("Unexpected error login user: %s", err)
-	}
+	msgs, err := c.FetchMessages(testCreds, 0)
 
-	msgs, err := c.FetchMessages()
-	if err != nil {
-		t.Fatalf("Unexpected error fetching messages: %s", err)
-	}
-
-	if len(msgs) != 1 {
-		t.Fatalf("Expected 1 message, got %d", len(msgs))
-	}
+	assert.NoError(t, err, "Unexpected error fetching messages")
+	assert.Equal(t, 1, len(msgs), "Expected 1 message")
 
 	expected := Message{
 		ID:                  12345678,

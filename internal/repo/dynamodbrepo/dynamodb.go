@@ -2,7 +2,6 @@ package dynamodbrepo
 
 import (
 	"errors"
-
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,13 +13,7 @@ import (
 	"github.com/volmedo/almendruco.git/internal/repo"
 )
 
-const tableName = "almendruco-user-data"
-
-type userRecord struct {
-	UserName            string
-	Password            string
-	LastNotifiedMessage uint64
-}
+const tableName = "almendruco-target-chats"
 
 type dynamoDBRepo struct {
 	db dynamodbiface.DynamoDBAPI
@@ -41,50 +34,25 @@ func NewRepoWithClient(client dynamodbiface.DynamoDBAPI) repo.Repo {
 	return &dynamoDBRepo{db: client}
 }
 
-func (dr *dynamoDBRepo) GetPassword(userName string) (string, error) {
-	ur, err := dr.fetchUserRecord(userName)
+func (dr *dynamoDBRepo) GetChats() ([]repo.Chat, error) {
+	out, err := dr.db.Scan(&dynamodb.ScanInput{TableName: aws.String(tableName)})
 	if err != nil {
-		return "", err
+		return []repo.Chat{}, fmt.Errorf("unable to fetch chats from DB: %w", err)
 	}
 
-	return ur.Password, nil
+	chats := make([]repo.Chat, 0, *out.Count)
+	for _, item := range out.Items {
+		chat := repo.Chat{}
+		if err := dynamodbattribute.UnmarshalMap(item, &chat); err != nil {
+			return []repo.Chat{}, fmt.Errorf("failed to unmarshal record: %w", err)
+		}
+
+		chats = append(chats, chat)
+	}
+
+	return chats, nil
 }
 
-func (dr *dynamoDBRepo) fetchUserRecord(userName string) (userRecord, error) {
-	res, err := dr.db.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
-		Key: map[string]*dynamodb.AttributeValue{
-			"Username": {
-				S: aws.String(userName),
-			},
-		},
-	})
-	if err != nil {
-		return userRecord{}, fmt.Errorf("error calling GetItem: %s", err)
-	}
-
-	if res.Item == nil {
-		return userRecord{}, fmt.Errorf("user %s not found", userName)
-	}
-
-	ur := userRecord{}
-
-	if err := dynamodbattribute.UnmarshalMap(res.Item, &ur); err != nil {
-		return userRecord{}, fmt.Errorf("failed to unmarshal record: %s", err)
-	}
-
-	return ur, nil
-}
-
-func (dr *dynamoDBRepo) GetLastNotifiedMessage(userName string) (uint64, error) {
-	ur, err := dr.fetchUserRecord(userName)
-	if err != nil {
-		return 0, err
-	}
-
-	return ur.LastNotifiedMessage, nil
-}
-
-func (dr *dynamoDBRepo) SetLastNotifiedMessage(userName string, id uint64) error {
+func (dr *dynamoDBRepo) UpdateLastNotifiedMessage(chatID repo.ChatID, lastNotifiedMessage uint64) error {
 	return errors.New("not implemented yet")
 }
