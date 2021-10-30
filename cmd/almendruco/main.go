@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/kelseyhightower/envconfig"
 
 	"github.com/volmedo/almendruco.git/internal/notifier"
@@ -36,9 +37,13 @@ func main() {
 		log.Fatalf("Error creating notifier: %s", err)
 	}
 
-	if err := notifyMessages(r, rc, n); err != nil {
-		log.Fatalf("Error notifying messages: %s", err)
-	}
+	lambda.Start(func() error {
+		if err := notifyMessages(r, rc, n); err != nil {
+			return fmt.Errorf("error notifying messages: %s", err)
+		}
+
+		return nil
+	})
 
 	log.Println("Success!")
 }
