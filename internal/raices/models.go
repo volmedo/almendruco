@@ -36,14 +36,20 @@ func parseMessage(rm rawMessage) (Message, error) {
 		return Message{}, err
 	}
 
-	sentDate, err := time.ParseInLocation(dateFormat, rm.SentDate, cet)
-	if err != nil {
-		return Message{}, err
+	var sentDate time.Time
+	if rm.SentDate != "" {
+		sentDate, err = time.ParseInLocation(dateFormat, rm.SentDate, cet)
+		if err != nil {
+			return Message{}, err
+		}
 	}
 
-	readDate, err := time.ParseInLocation(dateFormat, rm.ReadDate, cet)
-	if err != nil {
-		return Message{}, err
+	var readDate time.Time
+	if rm.ReadDate != "" {
+		readDate, err = time.ParseInLocation(dateFormat, rm.ReadDate, cet)
+		if err != nil {
+			return Message{}, err
+		}
 	}
 
 	return Message{
