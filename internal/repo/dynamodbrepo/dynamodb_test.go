@@ -13,19 +13,19 @@ import (
 
 var (
 	chat1 = repo.Chat{
-		ID: repo.ChatID(1),
+		ID: "chat1",
 		Credentials: repo.Credentials{
-			UserName: "user1",
-			Password: "pass1",
+			User: "user1",
+			Pass: "pass1",
 		},
 		LastNotifiedMessage: 1,
 	}
 
 	chat2 = repo.Chat{
-		ID: repo.ChatID(2),
+		ID: "chat2",
 		Credentials: repo.Credentials{
-			UserName: "user2",
-			Password: "pass2",
+			User: "user2",
+			Pass: "pass2",
 		},
 		LastNotifiedMessage: 2,
 	}
@@ -36,10 +36,7 @@ type dynamoDBClientMock struct {
 }
 
 func (m *dynamoDBClientMock) Scan(input *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
-	item1, err := dynamodbattribute.MarshalMap(chat1)
-	if err != nil {
-		return &dynamodb.ScanOutput{}, err
-	}
+	item1, _ := dynamodbattribute.MarshalMap(chat1)
 	item2, _ := dynamodbattribute.MarshalMap(chat2)
 
 	items := []map[string]*dynamodb.AttributeValue{item1, item2}
@@ -67,7 +64,7 @@ func TestUpdateLastNotifiedMessage(t *testing.T) {
 	mockClient := &dynamoDBClientMock{}
 	dynamoRepo := NewRepoWithClient(mockClient)
 
-	err := dynamoRepo.UpdateLastNotifiedMessage(repo.ChatID(12345678), 11)
+	err := dynamoRepo.UpdateLastNotifiedMessage("some_chat", 11)
 
 	assert.Error(t, err)
 }

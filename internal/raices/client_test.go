@@ -26,8 +26,8 @@ func TestFetchMessages(t *testing.T) {
 	require.NoError(t, err, "Unable to create client")
 
 	testCreds := repo.Credentials{
-		UserName: "Some User",
-		Password: "s0m3p4ss",
+		User: "Some User",
+		Pass: "s0m3p4ss",
 	}
 
 	msgs, err := c.FetchMessages(testCreds, 0)

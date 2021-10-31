@@ -108,8 +108,8 @@ func (c *client) FetchMessages(creds repo.Credentials, lastNotifiedMessage uint6
 
 func (c *client) login(creds repo.Credentials) error {
 	params := url.Values{}
-	params.Set(userParam, creds.UserName)
-	params.Set(passParam, creds.Password)
+	params.Set(userParam, creds.User)
+	params.Set(passParam, creds.Pass)
 	params.Set(verParam, verString)
 
 	u, _ := url.Parse(c.baseURL.String())

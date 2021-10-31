@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/kelseyhightower/envconfig"
@@ -55,6 +56,11 @@ func notifyMessages(r repo.Repo, rc raices.Client, n notifier.Notifier) error {
 	}
 
 	for _, c := range chats {
+		chatID, err := strconv.ParseUint(c.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("bad chatID %s: %w", c.ID, err)
+		}
+
 		msgs, err := rc.FetchMessages(c.Credentials, c.LastNotifiedMessage)
 		if err != nil {
 			return fmt.Errorf("error fetching messages from Raíces: %s", err)
@@ -65,7 +71,7 @@ func notifyMessages(r repo.Repo, rc raices.Client, n notifier.Notifier) error {
 			return errors.New("Raíces client returned no messages")
 		}
 
-		if err := n.Notify(notifier.ChatID(c.ID), msgs[0:5]); err != nil {
+		if err := n.Notify(notifier.ChatID(chatID), msgs[0:5]); err != nil {
 			return fmt.Errorf("error notifying messages: %s", err)
 		}
 	}

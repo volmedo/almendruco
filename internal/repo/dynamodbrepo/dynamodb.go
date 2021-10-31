@@ -13,7 +13,7 @@ import (
 	"github.com/volmedo/almendruco.git/internal/repo"
 )
 
-const tableName = "almendruco-target-chats"
+const tableName = "almendruco-chats"
 
 type dynamoDBRepo struct {
 	db dynamodbiface.DynamoDBAPI
@@ -53,6 +53,6 @@ func (dr *dynamoDBRepo) GetChats() ([]repo.Chat, error) {
 	return chats, nil
 }
 
-func (dr *dynamoDBRepo) UpdateLastNotifiedMessage(chatID repo.ChatID, lastNotifiedMessage uint64) error {
+func (dr *dynamoDBRepo) UpdateLastNotifiedMessage(chatID string, lastNotifiedMessage uint64) error {
 	return errors.New("not implemented yet")
 }
