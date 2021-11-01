@@ -2,13 +2,20 @@ package raices
 
 import "time"
 
-type messagesResponse struct {
-	Status   status       `json:"ESTADO"`
-	Messages []rawMessage `json:"RESULTADO"`
+type loginResponse struct {
+	Status status `json:"ESTADO"`
 }
 
 type status struct {
-	Code string `json:"CODIGO"`
+	Code        string `json:"CODIGO"`
+	Description string `json:"DESCRIPCION,omitempty"`
+}
+
+const statusCodeOK string = "C"
+
+type messagesResponse struct {
+	Status   status       `json:"ESTADO"`
+	Messages []rawMessage `json:"RESULTADO"`
 }
 
 type rawMessage struct {

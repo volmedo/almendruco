@@ -3,7 +3,6 @@ package raices
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -110,22 +109,21 @@ func (c *client) login(creds repo.Credentials) error {
 		return fmt.Errorf("received status code %d", resp.StatusCode)
 	}
 
-	return c.checkSessionCookie()
-}
-
-func (c *client) checkSessionCookie() error {
-	cks := c.http.Jar.Cookies(c.baseURL)
-	if len(cks) == 0 {
-		return errors.New("no cookies received")
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
 	}
 
-	for _, ck := range cks {
-		if ck.Name == loginCookieName {
-			return nil
-		}
+	var loginResp loginResponse
+	if err := json.Unmarshal(data, &loginResp); err != nil {
+		return err
 	}
 
-	return errors.New("no login cookies found")
+	if loginResp.Status.Code != statusCodeOK {
+		return fmt.Errorf("code %s in login response: %s", loginResp.Status.Code, loginResp.Status.Description)
+	}
+
+	return nil
 }
 
 func (c *client) fetchPage(u *url.URL, pageNum int) ([]rawMessage, error) {
