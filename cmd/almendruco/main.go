@@ -71,7 +71,7 @@ func notifyMessages(r repo.Repo, rc raices.Client, n notifier.Notifier) error {
 			return errors.New("Raíces client returned no messages")
 		}
 
-		if err := n.Notify(notifier.ChatID(chatID), msgs[0:5]); err != nil {
+		if err := n.Notify(notifier.ChatID(chatID), msgs); err != nil {
 			return fmt.Errorf("error notifying messages: %s", err)
 		}
 	}

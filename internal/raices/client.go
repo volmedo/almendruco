@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -62,45 +62,31 @@ func NewClient(baseURL string) (Client, error) {
 
 func (c *client) FetchMessages(creds repo.Credentials, lastNotifiedMessage uint64) ([]Message, error) {
 	// Login if needed
-	c.login(creds)
-
-	msgs := []Message{}
+	if err := c.login(creds); err != nil {
+		return []Message{}, err
+	}
 
 	u, _ := url.Parse(c.baseURL.String())
 	u.Path = path.Join(u.Path, msgPath)
+
+	msgs := []Message{}
 	numMsgs := msgsPerPage
 	for i := 1; numMsgs == msgsPerPage; i++ {
-		q := url.Values{}
-		q.Set(pageParam, fmt.Sprint(i))
-		u.RawQuery = q.Encode()
-		resp, err := c.http.Get(u.String())
-		if err != nil {
-			return []Message{}, err
-		}
-		defer resp.Body.Close()
-
-		data, err := ioutil.ReadAll(resp.Body)
+		rawMsgs, err := c.fetchPage(u, i)
 		if err != nil {
 			return []Message{}, err
 		}
 
-		// For some reason, the server is using ISO 8859-1 to encode its responses instead of UTF-8
-		utf8Reader := transform.NewReader(bytes.NewReader(data), charmap.ISO8859_1.NewDecoder())
-		utf8Data, _ := ioutil.ReadAll(utf8Reader)
+		rawMsgs = filterNotified(rawMsgs, lastNotifiedMessage)
 
-		var msgResp messagesResponse
-		if err := json.Unmarshal(utf8Data, &msgResp); err != nil {
-			return []Message{}, err
-		}
-
-		parsed, err := parseMessages(msgResp.Messages)
+		parsed, err := parse(rawMsgs)
 		if err != nil {
 			return []Message{}, err
 		}
 
 		msgs = append(msgs, parsed...)
 
-		numMsgs = len(msgs)
+		numMsgs = len(parsed)
 	}
 
 	return msgs, nil
@@ -142,7 +128,46 @@ func (c *client) checkSessionCookie() error {
 	return errors.New("no login cookies found")
 }
 
-func parseMessages(raw []rawMessage) ([]Message, error) {
+func (c *client) fetchPage(u *url.URL, pageNum int) ([]rawMessage, error) {
+	q := url.Values{}
+	q.Set(pageParam, fmt.Sprint(pageNum))
+	u.RawQuery = q.Encode()
+	resp, err := c.http.Get(u.String())
+	if err != nil {
+		return []rawMessage{}, err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []rawMessage{}, err
+	}
+
+	// For some reason, the server is using ISO 8859-1 to encode its responses instead of UTF-8
+	utf8Reader := transform.NewReader(bytes.NewReader(data), charmap.ISO8859_1.NewDecoder())
+	utf8Data, _ := io.ReadAll(utf8Reader)
+
+	var msgResp messagesResponse
+	if err := json.Unmarshal(utf8Data, &msgResp); err != nil {
+		return []rawMessage{}, err
+	}
+
+	return msgResp.Messages, nil
+}
+
+func filterNotified(rawMsgs []rawMessage, lastNotifiedMessage uint64) []rawMessage {
+	lastMessageToNotify := len(rawMsgs)
+	for j, r := range rawMsgs {
+		if r.ID <= lastNotifiedMessage {
+			lastMessageToNotify = j
+			break
+		}
+	}
+
+	return rawMsgs[:lastMessageToNotify]
+}
+
+func parse(raw []rawMessage) ([]Message, error) {
 	parsed := make([]Message, 0, len(raw))
 	for _, r := range raw {
 		m, err := parseMessage(r)
