@@ -1,9 +1,12 @@
 package raices
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,6 +16,8 @@ import (
 
 	"github.com/volmedo/almendruco.git/internal/repo"
 )
+
+const msgsPage = 10
 
 func TestFetchMessages(t *testing.T) {
 	mux := http.NewServeMux()
@@ -32,8 +37,8 @@ func TestFetchMessages(t *testing.T) {
 
 	msgs, err := c.FetchMessages(testCreds, 0)
 
-	assert.NoError(t, err, "Unexpected error fetching messages")
-	assert.Equal(t, 1, len(msgs), "Expected 1 message")
+	require.NoError(t, err, "Unexpected error fetching messages")
+	require.Equal(t, 1, len(msgs), "Expected 1 message")
 
 	expected := Message{
 		ID:                  12345678,
@@ -99,4 +104,95 @@ func happyMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		`
 	fmt.Fprint(w, testResp)
+}
+
+func TestMultiPageMessages(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
+	mux.Handle(msgPath, http.HandlerFunc(multiPageHandler))
+
+	svr := httptest.NewServer(mux)
+	defer svr.Close()
+
+	c, err := NewClient(svr.URL)
+	require.NoError(t, err, "Unable to create client")
+
+	testCreds := repo.Credentials{
+		User: "Some User",
+		Pass: "s0m3p4ss",
+	}
+
+	msgs, err := c.FetchMessages(testCreds, 0)
+
+	assert.NoError(t, err, "Unexpected error fetching messages")
+	assert.Equal(t, 15, len(msgs), "Expected 15 messages")
+}
+
+func TestOnlyReturnsNonNotifiedMsgs(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
+	mux.Handle(msgPath, http.HandlerFunc(multiPageHandler))
+
+	svr := httptest.NewServer(mux)
+	defer svr.Close()
+
+	c, err := NewClient(svr.URL)
+	require.NoError(t, err, "Unable to create client")
+
+	testCreds := repo.Credentials{
+		User: "Some User",
+		Pass: "s0m3p4ss",
+	}
+
+	msgs, err := c.FetchMessages(testCreds, 4)
+
+	assert.NoError(t, err, "Unexpected error fetching messages")
+	assert.Equal(t, 11, len(msgs), "Expected 11 messages")
+}
+
+func multiPageHandler(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	page, ok := params[pageParam]
+	if !ok || page[0] == "" {
+		http.Error(w, "page param missing", http.StatusBadRequest)
+	}
+
+	pageNum, err := strconv.Atoi(page[0])
+	if err != nil {
+		http.Error(w, "page param is not a number", http.StatusBadRequest)
+	}
+
+	// We'll return <msgsPage> messages with IDs in descending order starting from <numMsgs>
+	numMsgs := 15
+	firstMsg := numMsgs - msgsPage*(pageNum-1)
+	lastMsg := firstMsg - msgsPage + 1
+	lastMsg = int(math.Max(float64(lastMsg), 1))
+	msgs := make([]rawMessage, 0)
+	for i := firstMsg; i >= lastMsg; i-- {
+		msg := rawMessage{
+			ID:                  uint64(i),
+			SentDate:            "01/10/2021 18:27",
+			Sender:              "Jon Doe (Director)",
+			Subject:             "SOME SUBJECT",
+			Body:                "A message with some HTML entities&nbsp; and <div>markup</div>",
+			ContainsAttachments: "S",
+			Attachments: []Attachment{
+				{
+					ID:       123456,
+					FileName: "Some File.ext",
+				},
+			},
+			ReadDate: "02/10/2021 19:03",
+		}
+
+		msgs = append(msgs, msg)
+	}
+
+	messagesResp := messagesResponse{
+		Status:   status{Code: statusCodeOK},
+		Messages: msgs,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(messagesResp)
 }
