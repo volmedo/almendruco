@@ -69,16 +69,17 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 }
 
 func formatText(m raices.Message) string {
-	attachments := "no"
-	if m.ContainsAttachments {
-		attachments = "sí"
-	}
-
 	sentDate := m.SentDate.Format(dateFormat)
 	body := preprocess(m.Body)
 
-	return fmt.Sprintf("Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> %s\n<b>De:</b> %s\n<b>Asunto:</b> %s\n\n%s\n\n<b>Adjuntos:</b> %s",
-		sentDate, m.Sender, m.Subject, body, attachments)
+	text := fmt.Sprintf("Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> %s\n<b>De:</b> %s\n<b>Asunto:</b> %s\n\n%s",
+		sentDate, m.Sender, m.Subject, body)
+
+	if m.ContainsAttachments {
+		text = fmt.Sprintf("%s\n\n<b>Adjuntos:</b>\n%s", text, formatAttachments(m.Attachments))
+	}
+
+	return text
 }
 
 func preprocess(html string) string {
@@ -86,4 +87,13 @@ func preprocess(html string) string {
 
 	p := bluemonday.StrictPolicy()
 	return p.Sanitize(processed)
+}
+
+func formatAttachments(attachments []raices.Attachment) string {
+	var sb strings.Builder
+	for _, a := range attachments {
+		sb.WriteString(fmt.Sprintf("\t\t\t%s\n", a.FileName))
+	}
+
+	return sb.String()
 }
