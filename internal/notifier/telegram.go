@@ -69,21 +69,22 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 }
 
 func formatText(m raices.Message) string {
-	sentDate := m.SentDate.Format(dateFormat)
-	body := preprocess(m.Body)
-
-	text := fmt.Sprintf("Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> %s\n<b>De:</b> %s\n<b>Asunto:</b> %s\n\n%s",
-		sentDate, m.Sender, m.Subject, body)
+	var sb strings.Builder
+	sb.WriteString("Nuevo mensaje en Raíces!")
+	sb.WriteString(fmt.Sprintf("\n\n<b>Fecha:</b> %s", m.SentDate.Format(dateFormat)))
+	sb.WriteString(fmt.Sprintf("\n<b>De:</b> %s", m.Sender))
+	sb.WriteString(fmt.Sprintf("\n<b>Asunto:</b> %s", m.Subject))
+	sb.WriteString(fmt.Sprintf("\n\n%s", formatBody(m.Body)))
 
 	if m.ContainsAttachments {
-		text = fmt.Sprintf("%s\n\n<b>Adjuntos:</b>\n%s", text, formatAttachments(m.Attachments))
+		sb.WriteString(fmt.Sprintf("\n\n<b>Adjuntos:</b>\n%s", formatAttachments(m.Attachments)))
 	}
 
-	return text
+	return sb.String()
 }
 
-func preprocess(html string) string {
-	processed := strings.Replace(html, "<div>", "\n", -1)
+func formatBody(body string) string {
+	processed := strings.Replace(body, "<div>", "\n", -1)
 
 	p := bluemonday.StrictPolicy()
 	return p.Sanitize(processed)
