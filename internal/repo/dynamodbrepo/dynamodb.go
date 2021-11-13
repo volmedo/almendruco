@@ -1,8 +1,8 @@
 package dynamodbrepo
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -54,5 +54,25 @@ func (dr *dynamoDBRepo) GetChats() ([]repo.Chat, error) {
 }
 
 func (dr *dynamoDBRepo) UpdateLastNotifiedMessage(chatID string, lastNotifiedMessage uint64) error {
-	return errors.New("not implemented yet")
+	input := &dynamodb.UpdateItemInput{
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":last": {
+				N: aws.String(strconv.FormatUint(lastNotifiedMessage, 10)),
+			},
+		},
+		Key: map[string]*dynamodb.AttributeValue{
+			"id": {
+				S: aws.String(chatID),
+			},
+		},
+		TableName:        aws.String(tableName),
+		UpdateExpression: aws.String("SET lastNotifiedMessage = :last"),
+	}
+
+	_, err := dr.db.UpdateItem(input)
+	if err != nil {
+		return fmt.Errorf("update last notified message failed: %s", err)
+	}
+
+	return nil
 }

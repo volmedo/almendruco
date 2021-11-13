@@ -1,6 +1,8 @@
 package dynamodbrepo
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -48,6 +50,33 @@ func (m *dynamoDBClientMock) Scan(input *dynamodb.ScanInput) (*dynamodb.ScanOutp
 	}, nil
 }
 
+func (m *dynamoDBClientMock) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+	lastStr := input.ExpressionAttributeValues[":last"].N
+	last, err := strconv.ParseUint(*lastStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("bad lastNotifiedMessage value: %s", *lastStr)
+	}
+
+	expectedLast := uint64(11)
+	if last != expectedLast {
+		return nil, fmt.Errorf("expected last to be %d, but got %d", expectedLast, last)
+	}
+
+	key := input.Key["id"].S
+	expectedKey := "some_chat"
+	if *key != expectedKey {
+		return nil, fmt.Errorf("expected key to be %s but got %s", expectedKey, *key)
+	}
+
+	updateExp := input.UpdateExpression
+	expectedExp := "SET lastNotifiedMessage = :last"
+	if *updateExp != expectedExp {
+		return nil, fmt.Errorf("expected update exp to be \"%s\" but got \"%s\"", expectedExp, *updateExp)
+	}
+
+	return &dynamodb.UpdateItemOutput{}, nil
+}
+
 func TestGetChats(t *testing.T) {
 	mockClient := &dynamoDBClientMock{}
 	dynamoRepo := NewRepoWithClient(mockClient)
@@ -66,5 +95,5 @@ func TestUpdateLastNotifiedMessage(t *testing.T) {
 
 	err := dynamoRepo.UpdateLastNotifiedMessage("some_chat", 11)
 
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
