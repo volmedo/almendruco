@@ -8,14 +8,20 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/microcosm-cc/bluemonday"
+
 	"github.com/volmedo/almendruco.git/internal/raices"
 )
 
 const (
-	chatIDParam = "chat_id"
-	textParam   = "text"
+	chatIDParam    = "chat_id"
+	textParam      = "text"
+	parseModeParam = "parse_mode"
+	parseModeHTML  = "HTML"
 
 	sendMessagePath = "sendMessage"
+
+	dateFormat = "02/01/2006 15:04"
 )
 
 type telegramNotifier struct {
@@ -41,6 +47,7 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 
 	params := url.Values{}
 	params.Set(chatIDParam, strconv.FormatUint(uint64(chatID), 10))
+	params.Set(parseModeParam, parseModeHTML)
 
 	for _, m := range msgs {
 		text := formatText(m)
@@ -62,6 +69,32 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 }
 
 func formatText(m raices.Message) string {
-	return fmt.Sprintf("New message arrived to Raíces!\nFrom: %s\nSubject: %s\n%s\nAttachments: %v",
-		m.Sender, m.Subject, m.Body, m.ContainsAttachments)
+	var sb strings.Builder
+	sb.WriteString("Nuevo mensaje en Raíces!")
+	sb.WriteString(fmt.Sprintf("\n\n<b>Fecha:</b> %s", m.SentDate.Format(dateFormat)))
+	sb.WriteString(fmt.Sprintf("\n<b>De:</b> %s", m.Sender))
+	sb.WriteString(fmt.Sprintf("\n<b>Asunto:</b> %s", m.Subject))
+	sb.WriteString(fmt.Sprintf("\n\n%s", formatBody(m.Body)))
+
+	if m.ContainsAttachments {
+		sb.WriteString(fmt.Sprintf("\n\n<b>Adjuntos:</b>\n%s", formatAttachments(m.Attachments)))
+	}
+
+	return sb.String()
+}
+
+func formatBody(body string) string {
+	processed := strings.Replace(body, "<div>", "\n", -1)
+
+	p := bluemonday.StrictPolicy()
+	return p.Sanitize(processed)
+}
+
+func formatAttachments(attachments []raices.Attachment) string {
+	var sb strings.Builder
+	for _, a := range attachments {
+		sb.WriteString(fmt.Sprintf("\t\t\t%s\n", a.FileName))
+	}
+
+	return sb.String()
 }
