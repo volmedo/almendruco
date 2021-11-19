@@ -83,12 +83,12 @@ func (c *client) FetchMessages(creds repo.Credentials, lastNotifiedMessage uint6
 			return []Message{}, err
 		}
 
-		msgs = append(msgs, parsed...)
-
 		numMsgs = len(parsed)
+
+		msgs = append(msgs, parsed...)
 	}
 
-	return msgs, nil
+	return reverse(msgs), nil
 }
 
 func (c *client) login(creds repo.Credentials) error {
@@ -177,4 +177,13 @@ func parse(raw []rawMessage) ([]Message, error) {
 	}
 
 	return parsed, nil
+}
+
+func reverse(msgs []Message) []Message {
+	reversed := make([]Message, 0, len(msgs))
+	for i := len(msgs) - 1; i >= 0; i-- {
+		reversed = append(reversed, msgs[i])
+	}
+
+	return reversed
 }
