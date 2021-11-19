@@ -39,7 +39,7 @@ func TestNotify(t *testing.T) {
 		assert.Equal(t, "123456789", reqChatID)
 
 		reqText := r.Form.Get(textParam)
-		expectedText := "New message arrived to Raíces!\nFrom: Test Sender\nSubject: Test Subject\nHi you, this is a test message\nAttachments: true"
+		expectedText := "Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> 11/11/2021 00:00\n<b>De:</b> Test Sender\n<b>Asunto:</b> Test Subject\n\nHi you, this is a test message\n\n<b>Adjuntos:</b>\n\t\t\tattachment.file\n"
 		assert.Equal(t, expectedText, reqText)
 
 		w.WriteHeader(http.StatusOK)
@@ -49,6 +49,7 @@ func TestNotify(t *testing.T) {
 	tn, err := NewTelegramNotifier(svr.URL, "test_token")
 	require.NoError(t, err)
 
-	err = tn.Notify(chatID, []raices.Message{msg})
+	lastNotifiedMessage, err := tn.Notify(chatID, []raices.Message{msg})
 	assert.NoError(t, err)
+	assert.Equal(t, uint64(123456), lastNotifiedMessage)
 }

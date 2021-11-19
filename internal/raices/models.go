@@ -29,6 +29,17 @@ type rawMessage struct {
 	ReadDate            string       `json:"F_LECTURA"`
 }
 
+type Message struct {
+	ID                  uint64
+	SentDate            time.Time
+	Sender              string
+	Subject             string
+	Body                string
+	ContainsAttachments bool
+	Attachments         []Attachment
+	ReadDate            time.Time
+}
+
 type Attachment struct {
 	ID       uint64 `json:"X_ADJMENSAL"`
 	FileName string `json:"T_NOMFIC"`
@@ -69,15 +80,4 @@ func parseMessage(rm rawMessage) (Message, error) {
 		Attachments:         rm.Attachments,
 		ReadDate:            readDate,
 	}, nil
-}
-
-type Message struct {
-	ID                  uint64
-	SentDate            time.Time
-	Sender              string
-	Subject             string
-	Body                string
-	ContainsAttachments bool
-	Attachments         []Attachment
-	ReadDate            time.Time
 }

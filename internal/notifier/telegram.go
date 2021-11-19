@@ -41,7 +41,7 @@ func NewTelegramNotifier(baseURL, botToken string) (Notifier, error) {
 	}, nil
 }
 
-func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
+func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) (uint64, error) {
 	u, _ := url.Parse(tn.baseURL.String())
 	u.Path = path.Join(u.Path, sendMessagePath)
 
@@ -49,6 +49,7 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 	params.Set(chatIDParam, strconv.FormatUint(uint64(chatID), 10))
 	params.Set(parseModeParam, parseModeHTML)
 
+	var lastNotifiedMessage uint64
 	for _, m := range msgs {
 		text := formatText(m)
 
@@ -56,16 +57,18 @@ func (tn *telegramNotifier) Notify(chatID ChatID, msgs []raices.Message) error {
 
 		resp, err := tn.http.Post(u.String(), "application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
 		if err != nil {
-			return err
+			return lastNotifiedMessage, err
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("received status code %d", resp.StatusCode)
+			return lastNotifiedMessage, fmt.Errorf("received status code %d", resp.StatusCode)
 		}
+
+		lastNotifiedMessage = m.ID
 	}
 
-	return nil
+	return lastNotifiedMessage, nil
 }
 
 func formatText(m raices.Message) string {

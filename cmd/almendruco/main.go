@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -66,13 +65,19 @@ func notifyMessages(r repo.Repo, rc raices.Client, n notifier.Notifier) error {
 			return fmt.Errorf("error fetching messages from Raíces: %s", err)
 		}
 
-		if len(msgs) == 0 {
-			//lint:ignore ST1005 the word "Raíces" is capitalized as it is the name of the application
-			return errors.New("Raíces client returned no messages")
-		}
+		if len(msgs) != 0 {
+			last, err := n.Notify(notifier.ChatID(chatID), msgs)
+			if err != nil {
+				// Notify notifies messages until it encounters an error, so even in the case of an error
+				// happening we can still update last notified message to avoid notifying again messages
+				// that have already been notified
+				_ = r.UpdateLastNotifiedMessage(strconv.FormatUint(chatID, 10), last)
+				return fmt.Errorf("error notifying messages: %s", err)
+			}
 
-		if err := n.Notify(notifier.ChatID(chatID), msgs); err != nil {
-			return fmt.Errorf("error notifying messages: %s", err)
+			if err := r.UpdateLastNotifiedMessage(strconv.FormatUint(chatID, 10), last); err != nil {
+				return fmt.Errorf("error updating last notified message: %s", err)
+			}
 		}
 	}
 
