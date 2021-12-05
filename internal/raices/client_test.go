@@ -78,7 +78,7 @@ func happyLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, loginCk)
 	w.WriteHeader(200)
-	w.Write([]byte(testResp))
+	_, _ = w.Write([]byte(testResp))
 }
 
 func happyMessagesHandler(w http.ResponseWriter, r *http.Request) {
@@ -198,5 +198,5 @@ func multiPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(messagesResp)
+	_ = json.NewEncoder(w).Encode(messagesResp)
 }
