@@ -22,7 +22,7 @@ jobs:
     - name: Test
       run: go test -v ./...
 
-  build:
+  build-and-package:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -35,3 +35,6 @@ jobs:
 
     - name: Build
       run: go build -ldflags "-s -w" -o almendruco cmd/almendruco/*.go
+
+    - name: Package
+      run: zip almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip almendruco
