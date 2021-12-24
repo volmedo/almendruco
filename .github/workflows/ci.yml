@@ -1,9 +1,10 @@
-name: Check, test and build
+name: Check, build and deploy
 
 on: [push, pull_request]
 
 jobs:
   check-code:
+    name: Check code
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -22,7 +23,8 @@ jobs:
     - name: Test
       run: go test -v ./...
 
-  build-and-update-dry-run:
+  build-and-deploy-dry-run:
+    name: Build and deploy (dry run)
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -38,8 +40,12 @@ jobs:
     - name: Build
       run: go build -ldflags "-s -w" -o almendruco cmd/almendruco/*.go
 
-    - name: Package
-      run: zip almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip almendruco
+    - name: Pack
+      id: pack
+      run: |
+        PACKAGE_NAME=almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip
+        zip $PACKAGE_NAME almendruco
+        echo "::set-output name=package-name::$PACKAGE_NAME"
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -48,20 +54,21 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         role-duration-seconds: 900
 
-    - name: Update lambda
+    - name: Update lambda (dry run)
       run: |
         aws lambda update-function-code \
           --function-name almendruco \
-          --zip-file fileb://almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip \
+          --zip-file fileb://${{ steps.pack.outputs.package-name }} \
           --dry-run \
           >/dev/null
 
-  build-and-update:
+  build-and-deploy:
+    name: Build and deploy (production, main only)
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
     needs: 
       - check-code
-      - build-and-update-dry-run
+      - build-and-deploy-dry-run
     permissions:
       id-token: write
     steps:
@@ -76,8 +83,12 @@ jobs:
     - name: Build
       run: go build -ldflags "-s -w" -o almendruco cmd/almendruco/*.go
 
-    - name: Package
-      run: zip almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip almendruco
+    - name: Pack
+      id: pack
+      run: |
+        PACKAGE_NAME=almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip
+        zip $PACKAGE_NAME almendruco
+        echo "::set-output name=package-name::$PACKAGE_NAME"
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -90,5 +101,5 @@ jobs:
       run: |
         aws lambda update-function-code \
           --function-name almendruco \
-          --zip-file fileb://almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip \
+          --zip-file fileb://${{ steps.pack.outputs.package-name }} \
           >/dev/null
