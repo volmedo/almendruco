@@ -40,15 +40,19 @@ func TestFetchMessages(t *testing.T) {
 	require.NoError(t, err, "Unexpected error fetching messages")
 	require.Equal(t, 1, len(msgs), "Expected 1 message")
 
+	// Time strings reported by Raices are always CET/CEST
+	cet, err := time.LoadLocation("CET")
+	require.NoError(t, err, "Failed to load CET/CEST timezone data")
+
 	expected := Message{
 		ID:                  12345678,
-		SentDate:            time.Date(2021, time.October, 1, 18, 27, 0, 0, time.Local),
+		SentDate:            time.Date(2021, time.October, 1, 18, 27, 0, 0, cet),
 		Sender:              "Jon Doe (Director)",
 		Subject:             "SOME SUBJECT",
 		Body:                "A message with some HTML entities&nbsp; and <div>markup</div>",
 		ContainsAttachments: true,
 		Attachments:         []Attachment{{ID: 123456, FileName: "Some File.ext"}},
-		ReadDate:            time.Date(2021, time.October, 2, 19, 3, 00, 00, time.Local),
+		ReadDate:            time.Date(2021, time.October, 2, 19, 3, 00, 00, cet),
 	}
 
 	if diff := cmp.Diff(expected, msgs[0]); diff != "" {
@@ -74,7 +78,7 @@ func happyLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, loginCk)
 	w.WriteHeader(200)
-	w.Write([]byte(testResp))
+	_, _ = w.Write([]byte(testResp))
 }
 
 func happyMessagesHandler(w http.ResponseWriter, r *http.Request) {
@@ -194,5 +198,5 @@ func multiPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(messagesResp)
+	_ = json.NewEncoder(w).Encode(messagesResp)
 }
