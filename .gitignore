@@ -1,0 +1,6 @@
+# Build artifacts
+almendruco
+almendruco.zip
+
+# Tests output
+.test_coverage.txt
