@@ -15,19 +15,24 @@ jobs:
       with:
         go-version: 1.16
 
-    - name: lint
+    - name: Lint
       uses: golangci/golangci-lint-action@v2
       with:
         skip-go-installation: true
     
+    - name: Tidy
+      run: bash scripts/tidy.sh
+
     - name: Test
-      run: go test -v ./...
+      run: bash scripts/test.sh
 
   build-and-pack:
     name: Build and pack
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    env:
+      BINARY_NAME: almendruco
     outputs:
       package-name: ${{ steps.pack.outputs.package-name }}
     steps:
@@ -40,14 +45,14 @@ jobs:
         go-version: 1.16
 
     - name: Build
-      run: go build -ldflags "-s -w" -o almendruco cmd/almendruco/*.go
+      run: bash scripts/build.sh ${BINARY_NAME}
 
     - name: Pack
       id: pack
       run: |
-        PACKAGE_NAME=almendruco-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip
-        zip $PACKAGE_NAME almendruco
-        echo "::set-output name=package-name::$PACKAGE_NAME"
+        PACKAGE_NAME=${BINARY_NAME}-$(git rev-parse --abbrev-ref HEAD)-$(git rev-parse --short HEAD).zip
+        bash scripts/pack.sh ${BINARY_NAME} ${PACKAGE_NAME}
+        echo "::set-output name=package-name::${PACKAGE_NAME}"
 
     - name: Upload package
       uses: actions/upload-artifact@v2
@@ -62,12 +67,9 @@ jobs:
       - build-and-pack
     permissions:
       id-token: write
+    env:
+      LAMBDA_NAME: almendruco
     steps:
-    - name: Download package
-      uses: actions/download-artifact@v2
-      with:
-        name: package
-
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -75,12 +77,19 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         role-duration-seconds: 900
 
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Download package
+      uses: actions/download-artifact@v2
+      with:
+        name: package
+
     - name: Update lambda (dry-run)
       run: |
-        aws lambda update-function-code \
-          --function-name almendruco \
-          --zip-file fileb://${{ needs.build-and-pack.outputs.package-name }} \
-          --dry-run \
+        bash scripts/update.sh \
+          ${LAMBDA_NAME} \
+          ${{ needs.build-and-pack.outputs.package-name }} \
           >/dev/null
 
   deploy:
@@ -93,12 +102,9 @@ jobs:
       - deploy-dry-run
     permissions:
       id-token: write
+    env:
+      LAMBDA_NAME: almendruco
     steps:
-    - name: Download package
-      uses: actions/download-artifact@v2
-      with:
-        name: package
-
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -106,9 +112,17 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         role-duration-seconds: 900
 
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Download package
+      uses: actions/download-artifact@v2
+      with:
+        name: package
+
     - name: Update lambda
       run: |
-        aws lambda update-function-code \
-          --function-name almendruco \
-          --zip-file fileb://${{ needs.build-and-pack.outputs.package-name }} \
+        bash scripts/update.sh -r \
+          ${LAMBDA_NAME} \
+          ${{ needs.build-and-pack.outputs.package-name }} \
           >/dev/null
