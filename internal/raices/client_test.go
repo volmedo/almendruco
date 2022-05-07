@@ -23,6 +23,7 @@ func TestFetchMessages(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.Handle(loginPath, http.HandlerFunc(happyLoginHandler))
 	mux.Handle(msgPath, http.HandlerFunc(happyMessagesHandler))
+	mux.Handle(attachmentPath, http.HandlerFunc(happyAttachmentHandler))
 
 	svr := httptest.NewServer(mux)
 	defer svr.Close()
@@ -51,8 +52,14 @@ func TestFetchMessages(t *testing.T) {
 		Subject:             "SOME SUBJECT",
 		Body:                "A message with some HTML entities&nbsp; and <div>markup</div>",
 		ContainsAttachments: true,
-		Attachments:         []Attachment{{ID: 123456, FileName: "Some File.ext"}},
-		ReadDate:            time.Date(2021, time.October, 2, 19, 3, 00, 00, cet),
+		Attachments: []Attachment{
+			{
+				ID:       123456,
+				FileName: "Some File.ext",
+				Contents: []byte{1, 2, 3, 4, 5, 6},
+			},
+		},
+		ReadDate: time.Date(2021, time.October, 2, 19, 3, 00, 00, cet),
 	}
 
 	if diff := cmp.Diff(expected, msgs[0]); diff != "" {
@@ -108,6 +115,10 @@ func happyMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		`
 	fmt.Fprint(w, testResp)
+}
+
+func happyAttachmentHandler(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte{1, 2, 3, 4, 5, 6})
 }
 
 func TestMultiPageMessages(t *testing.T) {
@@ -180,7 +191,7 @@ func multiPageHandler(w http.ResponseWriter, r *http.Request) {
 			Subject:             "SOME SUBJECT",
 			Body:                "A message with some HTML entities&nbsp; and <div>markup</div>",
 			ContainsAttachments: "S",
-			Attachments: []Attachment{
+			Attachments: []rawAttachment{
 				{
 					ID:       123456,
 					FileName: "Some File.ext",

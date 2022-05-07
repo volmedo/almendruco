@@ -29,6 +29,9 @@ const (
 	msgPath     = "/raiz_app/jsp/pasendroid/mensajeria"
 	pageParam   = "PAGINA"
 	msgsPerPage = 10
+
+	attachmentPath     = "/raiz_app/jsp/pasendroid/descargaAdjMen"
+	attachmentNumParam = "X_ADJMENSAL"
 )
 
 type Client interface {
@@ -77,6 +80,7 @@ func (c *client) FetchMessages(creds repo.Credentials, lastNotifiedMessage uint6
 		}
 
 		rawMsgs = filterNotified(rawMsgs, lastNotifiedMessage)
+		rawMsgs = c.downloadAttachments(rawMsgs)
 
 		parsed, err := parse(rawMsgs)
 		if err != nil {
@@ -163,6 +167,44 @@ func filterNotified(rawMsgs []rawMessage, lastNotifiedMessage uint64) []rawMessa
 	}
 
 	return rawMsgs[:lastMessageToNotify]
+}
+
+func (c *client) downloadAttachments(rawMsgs []rawMessage) []rawMessage {
+	u, _ := url.Parse(c.baseURL.String())
+	u.Path = path.Join(u.Path, attachmentPath)
+
+	// for each message...
+	downloaded := make([]rawMessage, 0, len(rawMsgs))
+	for _, m := range rawMsgs {
+		msgWithAttachments := m
+
+		// ...download each attachment
+		attachments := make([]rawAttachment, 0, len(m.Attachments))
+		for _, a := range m.Attachments {
+			q := url.Values{}
+			q.Set(attachmentNumParam, fmt.Sprint(a.ID))
+			u.RawQuery = q.Encode()
+
+			resp, err := c.http.Get(u.String())
+			if err != nil {
+				continue
+			}
+			defer resp.Body.Close()
+
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				continue
+			}
+
+			attachments = append(attachments, rawAttachment{ID: a.ID, FileName: a.FileName, Contents: data})
+		}
+
+		msgWithAttachments.Attachments = attachments
+
+		downloaded = append(downloaded, msgWithAttachments)
+	}
+
+	return downloaded
 }
 
 func parse(raw []rawMessage) ([]Message, error) {

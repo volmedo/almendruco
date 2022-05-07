@@ -19,14 +19,20 @@ type messagesResponse struct {
 }
 
 type rawMessage struct {
-	ID                  uint64       `json:"X_NOTMENSAL"`
-	SentDate            string       `json:"F_ENVIO"`
-	Sender              string       `json:"REMITIDO"`
-	Subject             string       `json:"T_ASUNTO"`
-	Body                string       `json:"T_MENSAJE"`
-	ContainsAttachments string       `json:"L_ADJUNTO"`
-	Attachments         []Attachment `json:"ADJUNTOS"`
-	ReadDate            string       `json:"F_LECTURA"`
+	ID                  uint64          `json:"X_NOTMENSAL"`
+	SentDate            string          `json:"F_ENVIO"`
+	Sender              string          `json:"REMITIDO"`
+	Subject             string          `json:"T_ASUNTO"`
+	Body                string          `json:"T_MENSAJE"`
+	ContainsAttachments string          `json:"L_ADJUNTO"`
+	Attachments         []rawAttachment `json:"ADJUNTOS"`
+	ReadDate            string          `json:"F_LECTURA"`
+}
+
+type rawAttachment struct {
+	ID       uint64 `json:"X_ADJMENSAL"`
+	FileName string `json:"T_NOMFIC"`
+	Contents []byte
 }
 
 type Message struct {
@@ -41,8 +47,9 @@ type Message struct {
 }
 
 type Attachment struct {
-	ID       uint64 `json:"X_ADJMENSAL"`
-	FileName string `json:"T_NOMFIC"`
+	ID       uint64
+	FileName string
+	Contents []byte
 }
 
 const dateFormat = "02/01/2006 15:04"
@@ -70,6 +77,17 @@ func parseMessage(rm rawMessage) (Message, error) {
 		}
 	}
 
+	attachments := make([]Attachment, len(rm.Attachments))
+	for i, ra := range rm.Attachments {
+		contents := make([]byte, len(ra.Contents))
+		copy(contents, ra.Contents)
+		attachments[i] = Attachment{
+			ID:       ra.ID,
+			FileName: ra.FileName,
+			Contents: contents,
+		}
+	}
+
 	return Message{
 		ID:                  rm.ID,
 		SentDate:            sentDate,
@@ -77,7 +95,7 @@ func parseMessage(rm rawMessage) (Message, error) {
 		Subject:             rm.Subject,
 		Body:                rm.Body,
 		ContainsAttachments: rm.ContainsAttachments == "S",
-		Attachments:         rm.Attachments,
+		Attachments:         attachments,
 		ReadDate:            readDate,
 	}, nil
 }
