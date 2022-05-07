@@ -17,6 +17,10 @@ import (
 const appName = "almendruco"
 
 func main() {
+	lambda.Start(lambdaHandler())
+}
+
+func lambdaHandler() error {
 	cfg := config{}
 	if err := envconfig.Process(appName, &cfg); err != nil {
 		log.Fatalf("Configuration processing failed: %s", err)
@@ -37,15 +41,13 @@ func main() {
 		log.Fatalf("Error creating notifier: %s", err)
 	}
 
-	lambda.Start(func() error {
-		if err := notifyMessages(r, rc, n); err != nil {
-			return fmt.Errorf("error notifying messages: %s", err)
-		}
-
-		return nil
-	})
+	if err := notifyMessages(r, rc, n); err != nil {
+		return fmt.Errorf("error notifying messages: %s", err)
+	}
 
 	log.Println("Success!")
+
+	return nil
 }
 
 func notifyMessages(r repo.Repo, rc raices.Client, n notifier.Notifier) error {
