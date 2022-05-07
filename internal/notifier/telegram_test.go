@@ -1,8 +1,10 @@
 package notifier
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,23 +28,46 @@ func TestNotify(t *testing.T) {
 			{
 				ID:       98765,
 				FileName: "attachment.file",
+				Contents: []byte{1, 2, 3, 4, 5, 6},
 			},
 		},
 		ReadDate: time.Now(),
 	}
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseForm()
-		require.NoError(t, err)
+		if strings.HasSuffix(r.URL.String(), sendMessagePath) {
+			err := r.ParseForm()
+			require.NoError(t, err)
 
-		reqChatID := r.Form.Get(chatIDParam)
-		assert.Equal(t, "123456789", reqChatID)
+			reqChatID := r.Form.Get("chat_id")
+			assert.Equal(t, "123456789", reqChatID)
 
-		reqText := r.Form.Get(textParam)
-		expectedText := "Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> 11/11/2021 00:00\n<b>De:</b> Test Sender\n<b>Asunto:</b> Test Subject\n\nHi you, this is a test message\n\n<b>Adjuntos:</b>\n\t\t\tattachment.file\n"
-		assert.Equal(t, expectedText, reqText)
+			reqText := r.Form.Get("text")
+			expectedText := "Nuevo mensaje en Raíces!\n\n<b>Fecha:</b> 11/11/2021 00:00\n<b>De:</b> Test Sender\n<b>Asunto:</b> Test Subject\n\nHi you, this is a test message\n\n<b>Adjuntos:</b>\n\t\t\tattachment.file\n"
+			assert.Equal(t, expectedText, reqText)
 
-		w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusOK)
+		} else if strings.HasSuffix(r.URL.String(), sendDocumentPath) {
+			err := r.ParseMultipartForm(10)
+			require.NoError(t, err)
+
+			reqChatID := r.MultipartForm.Value["chat_id"][0]
+			assert.Equal(t, "123456789", reqChatID)
+
+			reqDocument := r.MultipartForm.File["document"][0]
+			assert.Equal(t, "attachment.file", reqDocument.Filename)
+			assert.Equal(t, int64(6), reqDocument.Size)
+
+			f, err := reqDocument.Open()
+			require.NoError(t, err)
+			defer f.Close()
+			contents, err := io.ReadAll(f)
+			require.NoError(t, err)
+			assert.Equal(t, []byte{1, 2, 3, 4, 5, 6}, contents)
+
+			w.WriteHeader(http.StatusOK)
+		}
+
 	}))
 	defer svr.Close()
 
