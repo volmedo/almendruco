@@ -4,3 +4,6 @@ almendruco.zip
 
 # Tests output
 .test_coverage.txt
+
+# Local IDE config
+.vscode
