@@ -17,32 +17,32 @@ import (
 const appName = "almendruco"
 
 func main() {
-	lambda.Start(lambdaHandler())
+	lambda.Start(lambdaHandler)
 }
 
 func lambdaHandler() error {
 	cfg := config{}
 	if err := envconfig.Process(appName, &cfg); err != nil {
-		log.Fatalf("Configuration processing failed: %s", err)
+		return fmt.Errorf("configuration processing failed: %w", err)
 	}
 
 	r, err := dynamodbrepo.NewRepo()
 	if err != nil {
-		log.Fatalf("Unable to initialize repository: %s", err)
+		return fmt.Errorf("unable to initialize repository: %w", err)
 	}
 
 	rc, err := raices.NewClient(cfg.Raices.BaseURL)
 	if err != nil {
-		log.Fatalf("Error creating Raíces client: %s", err)
+		return fmt.Errorf("error creating Raíces client: %w", err)
 	}
 
 	n, err := notifier.NewTelegramNotifier(cfg.Telegram.BaseURL, cfg.Telegram.BotToken)
 	if err != nil {
-		log.Fatalf("Error creating notifier: %s", err)
+		return fmt.Errorf("error creating notifier: %w", err)
 	}
 
 	if err := notifyMessages(r, rc, n); err != nil {
-		return fmt.Errorf("error notifying messages: %s", err)
+		return fmt.Errorf("error notifying messages: %w", err)
 	}
 
 	log.Println("Success!")
