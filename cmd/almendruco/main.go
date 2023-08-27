@@ -17,7 +17,7 @@ import (
 const appName = "almendruco"
 
 func main() {
-	lambda.Start(lambdaHandler())
+	lambda.Start(lambdaHandler)
 }
 
 func lambdaHandler() error {
